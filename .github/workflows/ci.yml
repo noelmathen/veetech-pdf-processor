@@ -30,23 +30,14 @@ jobs:
                       --collect-data ocrmypdf ^
                       run.py
 
-    #   # ------------------------------ optional code-sign
-    #   - name: Sign EXE (optional)
-    #     if: env.CERT_BASE64 != ''
-    #     env:
-    #       CERT_BASE64: ${{ secrets.WIN_CERT_BASE64 }}
-    #       CERT_PASS:   ${{ secrets.WIN_CERT_PASS }}
-    #     run: |
-    #       echo %CERT_BASE64% | certutil -decode - code.pfx
-    #       signtool sign /f code.pfx /p "%CERT_PASS%" /tr http://timestamp.digicert.com /td sha256 /fd sha256 dist\SplitMe.exe
 
       # ------------------------------
       - name: Build installer (Inno)
-        uses: Minimaa/innosetup-action@v1
+        uses: Minimaa/innosetup-action@v2      # <= bump to v2
         with:
-          script: build/SplitMe.iss
+            script: build/SplitMe.iss
         env:
-          VERSION: ${{ github.ref_name }}
+            VERSION: ${{ github.ref_name }}  # use the tag name as version
 
       # installer appears at build/Output/*.exe
       - name: Upload to release
