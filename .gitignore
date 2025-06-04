@@ -1,0 +1,9 @@
+# --- secrets & local configs ---
+.env
+*.env
+
+# PyInstaller outputs
+build/
+dist/
+SplitMe*.spec
+*.exe

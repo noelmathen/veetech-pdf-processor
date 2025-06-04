@@ -2,6 +2,13 @@
 
 import re
 import ocrmypdf
+import os, shutil, sys
+
+# Bundle-path helper
+BASE = getattr(sys, "_MEIPASS", os.path.dirname(__file__))
+os.environ["TESSDATA_PREFIX"] = os.path.join(BASE, "tesseract", "tessdata")
+os.environ["PATH"] += os.pathsep + os.path.join(BASE, "tesseract")
+os.environ["PATH"] += os.pathsep + os.path.join(BASE, "ghostscript")
 
 class OCRProcessor:
     """Handles OCR operations and text correction."""

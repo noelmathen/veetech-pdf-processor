@@ -1,6 +1,6 @@
 # veetech_app/gui.py
 
-import os
+import sys, os
 import threading
 import tempfile
 import shutil
@@ -13,6 +13,13 @@ from .logger import AppLogger
 from .update_manager import UpdateManager
 from .processor import VeetechProcessor, ProcessingResult
 
+
+def resource_path(rel_path: str) -> str:
+        """Return absolute path to resource, works for dev and PyInstaller."""
+        base = getattr(sys, '_MEIPASS', os.path.abspath("."))
+        return os.path.join(base, rel_path)
+    
+    
 class VeetechDesktopApp:
     """Main desktop application class."""
 
@@ -33,6 +40,8 @@ class VeetechDesktopApp:
         if self.config.auto_check_updates:
             self.check_updates_silent()
 
+    
+
     def setup_gui(self):
         """Setup the main GUI."""
         self.root = tk.Tk()
@@ -40,7 +49,7 @@ class VeetechDesktopApp:
         self.root.geometry("800x600")
         self.root.resizable(True, True)
         try:
-            self.root.iconbitmap("veetech_icon.ico")
+            self.root.iconbitmap(resource_path("assets\\veetech_icon.ico"))
         except:
             pass
         self.setup_styles()
