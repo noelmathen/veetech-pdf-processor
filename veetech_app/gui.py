@@ -27,7 +27,7 @@ class VeetechDesktopApp:
         self.config = AppConfig()
         self.logger_manager = AppLogger(self.config)
         self.logger = AppLogger.get_logger(__name__)
-        self.update_manager = UpdateManager(self.config)
+        self.update_manager = UpdateManager(self.config, root_window=self.root)
 
         # Application state
         self.selected_file = None
@@ -170,7 +170,9 @@ class VeetechDesktopApp:
         menubar.add_cascade(label="Help", menu=help_menu)
         help_menu.add_command(label="Check for Updates", command=self.check_updates_manual)
         help_menu.add_separator()
+        help_menu.add_command(label="Check for Updates", command=self.check_updates_manual)
         help_menu.add_command(label="About", command=self.show_about)
+        
 
         self.root.bind('<Control-o>', lambda e: self.browse_file())
         self.root.bind('<Control-q>', lambda e: self.root.quit())
@@ -356,13 +358,8 @@ class VeetechDesktopApp:
         threading.Thread(target=check_thread, daemon=True).start()
 
     def check_updates_manual(self):
-        """Manually check for updates."""
-        def check_thread():
-            update_info = self.update_manager.check_for_updates()
-            self.root.after(0, self.show_update_results, update_info)
-
-        messagebox.showinfo("Update Check", "Checking for updates...")
-        threading.Thread(target=check_thread, daemon=True).start()
+        """Manual “Check for Updates…” menu action."""
+        self.update_manager.prompt_and_update()
 
     def show_update_notification(self, update_info):
         """Show update notification popup."""

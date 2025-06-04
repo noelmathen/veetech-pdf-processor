@@ -1,127 +1,149 @@
 # veetech_app/update_manager.py
-"""
-Auto-update via GitHub Releases
-✓ Works for public repos without auth
-✓ For private repos set GITHUB_TOKEN env-var
-✓ Expects an asset named  SplitMe-Setup-<ver>.exe  OR  SplitMe.exe
-   (whichever you uploaded to the release)
-"""
 
-import os, sys, json, tempfile, subprocess, requests
-from pathlib import Path
-from packaging.version import Version, InvalidVersion     # pip install packaging
-from .config import AppConfig
-from .logger import AppLogger
+import requests
+import webbrowser
+import re
+import threading
+import tkinter as tk
 from tkinter import messagebox
-
-# ──────────────────────────────────────────────────────────────────────────────
-OWNER  = "noelmathen"
-REPO   = "veetech-pdf-processor"                       # ← repo name
-APP_EXE_NAME = "SplitMe.exe"             # how your exe is called after install
-ASSET_PREFIX = "SplitMe-Setup-"          # asset must start with this
-# ──────────────────────────────────────────────────────────────────────────────
-
-LATEST_API_URL = f"https://api.github.com/repos/{OWNER}/{REPO}/releases/latest"
-HEADERS = {
-    "Accept": "application/vnd.github+json",
-    "User-Agent": f"{REPO} Updater",
-}
-if token := os.getenv("GITHUB_TOKEN"):   # needed only for private repos
-    HEADERS["Authorization"] = f"Bearer {token}"
+from .config import AppConfig
 
 class UpdateManager:
-    """Check GitHub releases, download installer, run silently"""
+    """
+    Manages checking for updates via GitHub Releases.
+    """
 
-    def __init__(self, cfg: AppConfig):
-        self.cfg = cfg
-        self.log = AppLogger.get_logger(__name__)
+    def __init__(self, config: AppConfig, root_window: tk.Tk = None):
+        """
+        :param config: AppConfig instance (holds version, app name, etc.)
+        :param root_window: (optional) the Tk root, for threading-safe messageboxes.
+        """
+        self.config = config
+        self.root = root_window
+        # POINT THIS at your GitHub Releases "latest" API endpoint.
+        # Replace "YourUser" and "SplitMe" with your actual GitHub username/repo name.
+        self.github_api_latest = "https://api.github.com/repos/YourUser/SplitMe/releases/latest"
 
-    # ── public API ────────────────────────────────────────────────────────────
-    def check_for_updates(self):
-        """Return dict: {'update_available':bool, 'latest_version':str, 'download_url':str}"""
+    @staticmethod
+    def parse_version(tag: str) -> tuple[int, ...]:
+        """
+        Convert a version string like "v1.2.3" or "1.2.3" into a tuple of ints: (1, 2, 3).
+        - Ignores any leading "v" or "V".
+        - Splits on dots.
+        """
+        if tag.lower().startswith("v"):
+            tag = tag[1:]
+        parts = tag.split(".")
+        # Convert each part to int if possible, else 0
+        nums = []
+        for p in parts:
+            try:
+                nums.append(int(p))
+            except ValueError:
+                nums.append(0)
+        return tuple(nums)
+
+    def check_for_updates(self) -> dict:
+        """
+        Check GitHub for the latest release. Returns a dict:
+          {
+            "update_available": True/False,
+            "latest_version": "vX.Y.Z",
+            "download_url": "https://github.com/.../SplitMe-X.Y.Z-Setup.exe",
+            "error": None or "<error message>"
+          }
+        """
         try:
-            r = requests.get(LATEST_API_URL, headers=HEADERS, timeout=10)
-            r.raise_for_status()
-            data = r.json()
-            latest_tag = data["tag_name"].lstrip("v")               # e.g. '1.2.0'
-            self.log.info(f"Latest GitHub tag: {latest_tag}")
-            if self._is_newer(latest_tag, self.cfg.version):
-                asset_url = self._find_asset_url(data["assets"], latest_tag)
-                if asset_url:
+            resp = requests.get(self.github_api_latest, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+
+            # Example: "tag_name": "v1.2.3"
+            latest_tag = data.get("tag_name", "")
+            if not latest_tag:
+                return {"update_available": False, "latest_version": None,
+                        "download_url": None, "error": "No tag_name in response."}
+
+            latest_ver_tuple = UpdateManager.parse_version(latest_tag)
+            current_ver_tuple = UpdateManager.parse_version(self.config.version)
+
+            if latest_ver_tuple > current_ver_tuple:
+                # Find the Setup.exe asset
+                assets = data.get("assets", [])
+                download_url = None
+                for asset in assets:
+                    name = asset.get("name", "")
+                    if name.lower().endswith("-setup.exe"):
+                        download_url = asset.get("browser_download_url")
+                        break
+
+                if not download_url:
                     return {
-                        "update_available": True,
+                        "update_available": False,
                         "latest_version": latest_tag,
-                        "download_url": asset_url,
+                        "download_url": None,
+                        "error": "No Setup.exe asset found in release."
                     }
-            return {"update_available": False}
-        except Exception as err:
-            self.log.error(f"Update check failed: {err}")
-            return {"error": str(err)}
 
-    def download_update(self, url: str, progress_cb=None) -> Path:
-        """Stream-download installer → returns local Path"""
-        resp = requests.get(url, stream=True, headers=HEADERS, timeout=60)
-        resp.raise_for_status()
-        total = int(resp.headers.get("content-length", 0))
-        tmp = Path(tempfile.gettempdir()) / Path(url).name
-        with tmp.open("wb") as f:
-            dl = 0
-            for chunk in resp.iter_content(chunk_size=8192):
-                f.write(chunk)
-                dl += len(chunk)
-                if progress_cb and total:
-                    progress_cb(f"Downloading update… {dl*100/total:4.1f}%")
-        return tmp
+                return {
+                    "update_available": True,
+                    "latest_version": latest_tag,
+                    "download_url": download_url,
+                    "error": None
+                }
 
-    def apply_update(self, installer: Path) -> None:
-        """
-        Launch the Inno-Setup installer silently and exit current app.
-        The INI flag /VERYSILENT auto-updates in place.
-        """
-        try:
-            self.log.info(f"Running installer {installer}")
-            # Inno switches: /VERYSILENT /NORESTART /SUPPRESSMSGBOXES
-            subprocess.Popen([str(installer), "/VERYSILENT", "/NORESTART"])
-            sys.exit(0)         # quit current app → installer replaces files
+            # No update needed
+            return {"update_available": False, "latest_version": latest_tag,
+                    "download_url": None, "error": None}
+
+        except requests.RequestException as e:
+            return {"update_available": False, "latest_version": None,
+                    "download_url": None, "error": f"Network error: {e}"}
+        except ValueError as e:
+            # JSON parsing error
+            return {"update_available": False, "latest_version": None,
+                    "download_url": None, "error": f"Invalid JSON: {e}"}
         except Exception as e:
-            self.log.error(f"Failed to run installer: {e}")
+            return {"update_available": False, "latest_version": None,
+                    "download_url": None, "error": str(e)}
 
-    # ── helpers ───────────────────────────────────────────────────────────────
-    def _is_newer(self, latest: str, current: str) -> bool:
-        try:
-            return Version(latest) > Version(current)
-        except InvalidVersion:
-            return latest != current    # fallback: simple string diff
-
-    def _find_asset_url(self, assets, latest_tag):
+    def prompt_and_update(self):
         """
-        Pick first asset whose name starts with ASSET_PREFIX
-        Falls back to 'SplitMe.exe' if you ship the raw exe instead of installer
+        Perform the check in a background thread, then prompt the user if new version found.
+        Must be called from the main thread (e.g. in response to a menu click).
         """
-        # Prioritize the installer asset (SplitMe-Setup-...)
-        for a in assets:
-            if a["name"].startswith(ASSET_PREFIX): # This is your desired installer
-                self.log.info(f"Update asset: {a['name']}")
-                return a["browser_download_url"]
-        
-        # Fallback to the raw exe if no installer is found (less ideal for updates)
-        for a in assets:
-            if a["name"] == APP_EXE_NAME:
-                self.log.info(f"Update asset: {a['name']} (fallback to raw exe)")
-                return a["browser_download_url"]
+        def worker():
+            result = self.check_for_updates()
+            # Use root.after so the messagebox is shown on the main thread
+            if self.root:
+                self.root.after(0, lambda: self._show_result(result))
+            else:
+                # If no root was provided, show immediately (may block)
+                self._show_result(result)
 
-        self.log.warning("No matching asset found in release.")
-        return None
+        threading.Thread(target=worker, daemon=True).start()
 
-    def check_updates_manual(self):
-        info = self.update_manager.check_for_updates()
-        if info.get("error"):
-            messagebox.showerror("Update Error", info["error"])
-        elif info["update_available"]:
-            if messagebox.askyesno("Update Available",
-                                f"SplitMe {info['latest_version']} is out!\n"
-                                "Download and install now?"):
-                self.download_and_install_update(info["download_url"])
+    def _show_result(self, result: dict):
+        """
+        Called on the main thread to display the appropriate dialog.
+        """
+        if result["error"]:
+            messagebox.showerror("Update Check Failed", f"Error: {result['error']}")
+            return
+
+        if result["update_available"]:
+            latest = result["latest_version"]
+            url = result["download_url"]
+
+            if messagebox.askyesno(
+                "Update Available",
+                f"A new version ({latest}) is available!\n"
+                f"Your version: {self.config.version}\n\n"
+                "Would you like to download it now?"
+            ):
+                webbrowser.open(url)
         else:
-            messagebox.showinfo("Up to date",
-                                f"You already have SplitMe {self.config.version}.")
+            messagebox.showinfo(
+                "No Updates Found",
+                f"You are running the latest version ({self.config.version})."
+            )
