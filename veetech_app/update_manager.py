@@ -21,8 +21,7 @@ class UpdateManager:
         self.config = config
         self.root = root_window
         # POINT THIS at your GitHub Releases "latest" API endpoint.
-        # Replace "YourUser" and "SplitMe" with your actual GitHub username/repo name.
-        self.github_api_latest = "https://api.github.com/repos/YourUser/SplitMe/releases/latest"
+        self.github_api_latest = "https://api.github.com/repos/noelmathen/veetech-pdf-processor/releases/latest"
 
     @staticmethod
     def parse_version(tag: str) -> tuple[int, ...]:
