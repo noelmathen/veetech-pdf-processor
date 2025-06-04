@@ -1,6 +1,7 @@
 # veetech_app/gui.py
 
-import sys, os
+import sys
+import os
 import threading
 import tempfile
 import shutil
@@ -15,11 +16,11 @@ from .processor import VeetechProcessor, ProcessingResult
 
 
 def resource_path(rel_path: str) -> str:
-        """Return absolute path to resource, works for dev and PyInstaller."""
-        base = getattr(sys, '_MEIPASS', os.path.abspath("."))
-        return os.path.join(base, rel_path)
-    
-    
+    """Return absolute path to resource, works for dev and PyInstaller."""
+    base = getattr(sys, "_MEIPASS", os.path.abspath("."))
+    return os.path.join(base, rel_path)
+
+
 class VeetechDesktopApp:
     """Main desktop application class."""
 
@@ -27,20 +28,20 @@ class VeetechDesktopApp:
         self.config = AppConfig()
         self.logger_manager = AppLogger(self.config)
         self.logger = AppLogger.get_logger(__name__)
-        self.update_manager = UpdateManager(self.config, root_window=self.root)
 
         # Application state
         self.selected_file = None
         self.processing = False
 
-        # Setup GUI
+        # Setup GUI (defines self.root)
         self.setup_gui()
+
+        # Now that self.root exists, instantiate UpdateManager
+        self.update_manager = UpdateManager(self.config, root_window=self.root)
 
         # Check for updates on startup
         if self.config.auto_check_updates:
             self.check_updates_silent()
-
-    
 
     def setup_gui(self):
         """Setup the main GUI."""
@@ -48,10 +49,12 @@ class VeetechDesktopApp:
         self.root.title(f"{self.config.app_name} v{self.config.version}")
         self.root.geometry("800x600")
         self.root.resizable(True, True)
+
         try:
             self.root.iconbitmap(resource_path("assets\\veetech_icon.ico"))
         except:
             pass
+
         self.setup_styles()
 
         self.main_frame = ttk.Frame(self.root, padding="20")
@@ -71,83 +74,175 @@ class VeetechDesktopApp:
 
     def setup_styles(self):
         style = ttk.Style()
-        style.configure('Header.TLabel', font=('Segoe UI', 16, 'bold'))
-        style.configure('Subheader.TLabel', font=('Segoe UI', 10, 'bold'))
-        style.configure('Action.TButton', font=('Segoe UI', 10, 'bold'))
+        style.configure("Header.TLabel", font=("Segoe UI", 16, "bold"))
+        style.configure("Subheader.TLabel", font=("Segoe UI", 10, "bold"))
+        style.configure("Action.TButton", font=("Segoe UI", 10, "bold"))
 
     def create_header(self):
         header_frame = ttk.Frame(self.main_frame)
         header_frame.grid(row=0, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
-        ttk.Label(header_frame, text=self.config.app_name, style='Header.TLabel').grid(row=0, column=0, sticky=tk.W)
-        ttk.Label(header_frame, text=f"Version {self.config.version}", foreground='gray').grid(row=1, column=0, sticky=tk.W)
+
+        ttk.Label(
+            header_frame,
+            text=self.config.app_name,
+            style="Header.TLabel"
+        ).grid(row=0, column=0, sticky=tk.W)
+
+        ttk.Label(
+            header_frame,
+            text=f"Version {self.config.version}",
+            foreground="gray"
+        ).grid(row=1, column=0, sticky=tk.W)
 
     def create_file_selection(self):
-        ttk.Label(self.main_frame, text="Select PDF File:", style='Subheader.TLabel').grid(row=1, column=0, sticky=tk.W, pady=(0,5))
+        ttk.Label(
+            self.main_frame,
+            text="Select PDF File:",
+            style="Subheader.TLabel"
+        ).grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
+
         file_frame = ttk.Frame(self.main_frame)
-        file_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0,15))
+        file_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 15))
         file_frame.columnconfigure(1, weight=1)
 
         self.file_path_var = tk.StringVar()
-        self.file_path_entry = ttk.Entry(file_frame, textvariable=self.file_path_var, state='readonly', width=50)
-        self.file_path_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0,10))
-        ttk.Button(file_frame, text="Browse...", command=self.browse_file).grid(row=0, column=2, sticky=tk.W)
+        self.file_path_entry = ttk.Entry(
+            file_frame,
+            textvariable=self.file_path_var,
+            state="readonly",
+            width=50
+        )
+        self.file_path_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
+
+        ttk.Button(
+            file_frame,
+            text="Browse...",
+            command=self.browse_file
+        ).grid(row=0, column=2, sticky=tk.W)
 
     def create_processing_options(self):
-        options_frame = ttk.LabelFrame(self.main_frame, text="Processing Options", padding="10")
-        options_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0,15))
+        options_frame = ttk.LabelFrame(
+            self.main_frame,
+            text="Processing Options",
+            padding="10"
+        )
+        options_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 15))
 
         self.auto_organize_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(options_frame, text="Automatically organize files by tag", variable=self.auto_organize_var).grid(row=0, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(
+            options_frame,
+            text="Automatically organize files by tag",
+            variable=self.auto_organize_var
+        ).grid(row=0, column=0, sticky=tk.W, pady=2)
 
         self.save_logs_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(options_frame, text="Save processing logs", variable=self.save_logs_var).grid(row=1, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(
+            options_frame,
+            text="Save processing logs",
+            variable=self.save_logs_var
+        ).grid(row=1, column=0, sticky=tk.W, pady=2)
 
         self.force_ocr_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(options_frame, text="Force OCR processing (recommended)", variable=self.force_ocr_var).grid(row=2, column=0, sticky=tk.W, pady=2)
+        ttk.Checkbutton(
+            options_frame,
+            text="Force OCR processing (recommended)",
+            variable=self.force_ocr_var
+        ).grid(row=2, column=0, sticky=tk.W, pady=2)
 
     def create_progress_section(self):
-        progress_frame = ttk.LabelFrame(self.main_frame, text="Processing Progress", padding="10")
-        progress_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0,15))
+        progress_frame = ttk.LabelFrame(
+            self.main_frame,
+            text="Processing Progress",
+            padding="10"
+        )
+        progress_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 15))
         progress_frame.columnconfigure(0, weight=1)
 
         self.progress_var = tk.DoubleVar()
-        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, mode='indeterminate')
-        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0,5))
+        self.progress_bar = ttk.Progressbar(
+            progress_frame,
+            variable=self.progress_var,
+            mode="indeterminate"
+        )
+        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
 
         self.status_var = tk.StringVar(value="Ready to process")
-        self.status_label = ttk.Label(progress_frame, textvariable=self.status_var, foreground='blue')
+        self.status_label = ttk.Label(
+            progress_frame,
+            textvariable=self.status_var,
+            foreground="blue"
+        )
         self.status_label.grid(row=1, column=0, sticky=tk.W)
 
     def create_log_section(self):
-        log_frame = ttk.LabelFrame(self.main_frame, text="Processing Log", padding="10")
-        log_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0,15))
+        log_frame = ttk.LabelFrame(
+            self.main_frame,
+            text="Processing Log",
+            padding="10"
+        )
+        log_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 15))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         self.main_frame.rowconfigure(5, weight=1)
 
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=10, state='disabled', wrap=tk.WORD)
+        self.log_text = scrolledtext.ScrolledText(
+            log_frame,
+            height=10,
+            state="disabled",
+            wrap=tk.WORD
+        )
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         log_controls = ttk.Frame(log_frame)
-        log_controls.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(5,0))
-        ttk.Button(log_controls, text="Clear Log", command=self.clear_log).grid(row=0, column=0, sticky=tk.W)
-        ttk.Button(log_controls, text="Save Log", command=self.save_log).grid(row=0, column=1, sticky=tk.W, padx=(10,0))
+        log_controls.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+
+        ttk.Button(
+            log_controls,
+            text="Clear Log",
+            command=self.clear_log
+        ).grid(row=0, column=0, sticky=tk.W)
+
+        ttk.Button(
+            log_controls,
+            text="Save Log",
+            command=self.save_log
+        ).grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
 
     def create_action_buttons(self):
         button_frame = ttk.Frame(self.main_frame)
-        button_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10,0))
+        button_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
 
-        self.process_button = ttk.Button(button_frame, text="Process PDF", command=self.start_processing, style='Action.TButton')
+        self.process_button = ttk.Button(
+            button_frame,
+            text="Process PDF",
+            command=self.start_processing,
+            style="Action.TButton"
+        )
         self.process_button.grid(row=0, column=0, sticky=tk.W)
 
-        self.cancel_button = ttk.Button(button_frame, text="Cancel", command=self.cancel_processing, state='disabled')
-        self.cancel_button.grid(row=0, column=1, sticky=tk.W, padx=(10,0))
+        self.cancel_button = ttk.Button(
+            button_frame,
+            text="Cancel",
+            command=self.cancel_processing,
+            state="disabled"
+        )
+        self.cancel_button.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
 
-        self.open_output_button = ttk.Button(button_frame, text="Open Output Folder", command=self.open_output_folder, state='disabled')
-        self.open_output_button.grid(row=0, column=2, sticky=tk.W, padx=(10,0))
+        self.open_output_button = ttk.Button(
+            button_frame,
+            text="Open Output Folder",
+            command=self.open_output_folder,
+            state="disabled"
+        )
+        self.open_output_button.grid(row=0, column=2, sticky=tk.W, padx=(10, 0))
 
         button_frame.columnconfigure(3, weight=1)
-        ttk.Button(button_frame, text="Exit", command=self.root.quit).grid(row=0, column=4, sticky=tk.E)
+
+        ttk.Button(
+            button_frame,
+            text="Exit",
+            command=self.root.quit
+        ).grid(row=0, column=4, sticky=tk.E)
 
     def create_menu(self):
         menubar = tk.Menu(self.root)
@@ -170,12 +265,10 @@ class VeetechDesktopApp:
         menubar.add_cascade(label="Help", menu=help_menu)
         help_menu.add_command(label="Check for Updates", command=self.check_updates_manual)
         help_menu.add_separator()
-        help_menu.add_command(label="Check for Updates", command=self.check_updates_manual)
         help_menu.add_command(label="About", command=self.show_about)
-        
 
-        self.root.bind('<Control-o>', lambda e: self.browse_file())
-        self.root.bind('<Control-q>', lambda e: self.root.quit())
+        self.root.bind("<Control-o>", lambda e: self.browse_file())
+        self.root.bind("<Control-q>", lambda e: self.root.quit())
 
     # ────────────────────────────────────────────────────────────────────────────
     # EVENT HANDLERS
@@ -191,24 +284,26 @@ class VeetechDesktopApp:
             self.selected_file = filename
             self.file_path_var.set(filename)
             self.log_message(f"Selected file: {filename}")
-            self.process_button.config(state='normal')
+            self.process_button.config(state="normal")
 
     def start_processing(self):
         if not self.selected_file:
             messagebox.showerror("Error", "Please select a PDF file first.")
             return
+
         if self.processing:
             messagebox.showwarning("Warning", "Processing is already in progress.")
             return
+
         if not os.path.exists(self.selected_file):
             messagebox.showerror("Error", "Selected file does not exist.")
             return
 
         # Update UI state
         self.processing = True
-        self.process_button.config(state='disabled')
-        self.cancel_button.config(state='normal')
-        self.open_output_button.config(state='disabled')
+        self.process_button.config(state="disabled")
+        self.cancel_button.config(state="normal")
+        self.open_output_button.config(state="disabled")
         self.progress_bar.start()
 
         self.clear_log()
@@ -249,9 +344,9 @@ class VeetechDesktopApp:
         """Handle successful processing completion."""
         self.processing = False
         self.progress_bar.stop()
-        self.process_button.config(state='normal')
-        self.cancel_button.config(state='disabled')
-        self.open_output_button.config(state='normal')
+        self.process_button.config(state="normal")
+        self.cancel_button.config(state="disabled")
+        self.open_output_button.config(state="normal")
 
         self.status_var.set("Processing complete!")
         self.log_message("=" * 50)
@@ -284,14 +379,15 @@ class VeetechDesktopApp:
                 f"Check the log for details.\n\n"
                 f"Output directory:\n{result.output_directory}"
             )
+
         self.last_output_dir = result.output_directory
 
     def processing_error(self, error_msg: str):
         """Handle processing error."""
         self.processing = False
         self.progress_bar.stop()
-        self.process_button.config(state='normal')
-        self.cancel_button.config(state='disabled')
+        self.process_button.config(state="normal")
+        self.cancel_button.config(state="disabled")
         self.status_var.set("Processing failed!")
         self.log_message(f"ERROR: {error_msg}")
         messagebox.showerror("Processing Error", error_msg)
@@ -301,23 +397,23 @@ class VeetechDesktopApp:
         if self.processing:
             self.processing = False
             self.progress_bar.stop()
-            self.process_button.config(state='normal')
-            self.cancel_button.config(state='disabled')
+            self.process_button.config(state="normal")
+            self.cancel_button.config(state="disabled")
             self.status_var.set("Processing cancelled")
             self.log_message("Processing cancelled by user")
 
     def open_output_folder(self):
         """Open the output folder in Windows Explorer."""
-        if hasattr(self, 'last_output_dir') and os.path.exists(self.last_output_dir):
+        if hasattr(self, "last_output_dir") and os.path.exists(self.last_output_dir):
             os.startfile(self.last_output_dir)
         else:
             messagebox.showwarning("Warning", "No output folder available.")
 
     def clear_log(self):
         """Clear the log display."""
-        self.log_text.config(state='normal')
+        self.log_text.config(state="normal")
         self.log_text.delete(1.0, tk.END)
-        self.log_text.config(state='disabled')
+        self.log_text.config(state="disabled")
 
     def save_log(self):
         """Save log content to file."""
@@ -329,7 +425,7 @@ class VeetechDesktopApp:
         if filename:
             try:
                 log_content = self.log_text.get(1.0, tk.END)
-                with open(filename, 'w', encoding='utf-8') as f:
+                with open(filename, "w", encoding="utf-8") as f:
                     f.write(log_content)
                 messagebox.showinfo("Success", f"Log saved to:\n{filename}")
             except Exception as e:
@@ -339,10 +435,10 @@ class VeetechDesktopApp:
         """Add message to log display."""
         timestamp = datetime.now().strftime("%H:%M:%S")
         formatted_message = f"[{timestamp}] {message}\n"
-        self.log_text.config(state='normal')
+        self.log_text.config(state="normal")
         self.log_text.insert(tk.END, formatted_message)
         self.log_text.see(tk.END)
-        self.log_text.config(state='disabled')
+        self.log_text.config(state="disabled")
 
     # ────────────────────────────────────────────────────────────────────────────
     # UPDATE MANAGEMENT (silent/manual checks)
@@ -352,8 +448,8 @@ class VeetechDesktopApp:
         """Check for updates silently on startup."""
         def check_thread():
             update_info = self.update_manager.check_for_updates()
-            if not update_info.get('error') and update_info.get('update_available'):
-                self.root.after(0, self.show_update_notification, update_info)
+            if not update_info.get("error") and update_info.get("update_available"):
+                self.root.after(0, lambda: self.show_update_notification(update_info))
 
         threading.Thread(target=check_thread, daemon=True).start()
 
@@ -361,31 +457,17 @@ class VeetechDesktopApp:
         """Manual “Check for Updates…” menu action."""
         self.update_manager.prompt_and_update()
 
-    def show_update_notification(self, update_info):
+    def show_update_notification(self, update_info: dict):
         """Show update notification popup."""
         result = messagebox.askyesno(
             "Update Available",
             f"A new version ({update_info['latest_version']}) is available!\n\n"
             f"Current version: {self.config.version}\n"
             f"New version: {update_info['latest_version']}\n\n"
-            f"Would you like to download and install the update?"
+            "Would you like to download and install the update?"
         )
         if result:
-            self.download_and_install_update(update_info['download_url'])
-
-    def show_update_results(self, update_info):
-        if update_info.get('error'):
-            messagebox.showerror(
-                "Update Check Failed",
-                f"Failed to check for updates:\n{update_info['error']}"
-            )
-        elif update_info.get('update_available'):
-            self.show_update_notification(update_info)
-        else:
-            messagebox.showinfo(
-                "No Updates Available",
-                f"You are running the latest version ({self.config.version})."
-            )
+            self.download_and_install_update(update_info["download_url"])
 
     def download_and_install_update(self, download_url: str):
         """Download and install update."""
@@ -396,16 +478,16 @@ class VeetechDesktopApp:
                     progress_callback=self.update_download_progress
                 )
                 success = self.update_manager.apply_update(update_file)
-                self.root.after(0, self.update_download_complete, success)
+                self.root.after(0, lambda: self.update_download_complete(success))
             except Exception as e:
                 error_msg = f"Update failed: {str(e)}"
-                self.root.after(0, self.update_download_error, error_msg)
+                self.root.after(0, lambda: self.update_download_error(error_msg))
 
         self.log_message("Starting update download...")
         threading.Thread(target=download_thread, daemon=True).start()
 
     def update_download_progress(self, message: str):
-        self.root.after(0, self.log_message, message)
+        self.root.after(0, lambda: self.log_message(message))
 
     def update_download_complete(self, success: bool):
         if success:
