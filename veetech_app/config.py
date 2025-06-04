@@ -5,8 +5,8 @@ from dataclasses import dataclass
 @dataclass
 class AppConfig:
     """Application configuration settings."""
-    app_name: str = "Veetech PDF Processor"
-    version: str = "1.0.0"
+    app_name: str = "SplitMe"
+    version: str = "1.0.7"
     update_server_url: str = "https://your-update-server.com/api"
     config_file: str = "veetech_config.json"
     log_file: str = "veetech_app.log"
