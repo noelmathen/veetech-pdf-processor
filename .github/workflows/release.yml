@@ -4,13 +4,15 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   build:
     runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v4
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -24,21 +26,32 @@ jobs:
         pip install pyinstaller
     
     - name: Build executable
-      run: python build/build_script.py
+      run: |
+        python build/build_script.py
     
-    - name: Set up Inno Setup
-      uses: svenstaro/setup-innosetup@v2
-      with:
-        version: latest
-
+    - name: Install Inno Setup
+      run: |
+        # Download and install Inno Setup 6
+        Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile "innosetup-install.exe"
+        Start-Process -FilePath "innosetup-install.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+        
     - name: Build installer
-      run: iscc build/SplitMe.iss
+      run: |
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "build/SplitMe.iss"
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: SplitMe-Installer
+        path: installers/*.exe
     
     - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
         files: installers/*.exe
         draft: false
         prerelease: false
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
