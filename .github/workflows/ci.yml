@@ -32,7 +32,7 @@ jobs:
 
 
       # 1) fetch & install Inno Setup 6.x
-      - uses: svenstaro/setup-innosetup@v2   # v2 is the latest as of 2025-06
+      - uses: svenstaro/setup-innosetup   
         with:
             version: "6.2.2"                   # or omit to get “latest”
 
