@@ -31,13 +31,16 @@ jobs:
                       run.py
 
 
-      # ------------------------------
-      - name: Build installer (Inno)
-        uses: Minimaa/innosetup-action@v2      # <= bump to v2
+      # 1) fetch & install Inno Setup 6.x
+      - uses: svenstaro/setup-innosetup@v2   # v2 is the latest as of 2025-06
         with:
-            script: build/SplitMe.iss
-        env:
-            VERSION: ${{ github.ref_name }}  # use the tag name as version
+            version: "6.2.2"                   # or omit to get “latest”
+
+        # 2) compile the installer
+      - name: Build installer (Inno Setup)
+        run: |
+            iscc build\SplitMe.iss /dVERSION=${{ github.ref_name }}
+ 
 
       # installer appears at build/Output/*.exe
       - name: Upload to release
