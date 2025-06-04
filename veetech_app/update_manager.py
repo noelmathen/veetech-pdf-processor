@@ -95,13 +95,21 @@ class UpdateManager:
 
     def _find_asset_url(self, assets, latest_tag):
         """
-        Pick first asset whose name starts with  ASSET_PREFIX
+        Pick first asset whose name starts with ASSET_PREFIX
         Falls back to 'SplitMe.exe' if you ship the raw exe instead of installer
         """
+        # Prioritize the installer asset (SplitMe-Setup-...)
         for a in assets:
-            if a["name"].startswith(ASSET_PREFIX) or a["name"] == APP_EXE_NAME:
+            if a["name"].startswith(ASSET_PREFIX): # This is your desired installer
                 self.log.info(f"Update asset: {a['name']}")
                 return a["browser_download_url"]
+        
+        # Fallback to the raw exe if no installer is found (less ideal for updates)
+        for a in assets:
+            if a["name"] == APP_EXE_NAME:
+                self.log.info(f"Update asset: {a['name']} (fallback to raw exe)")
+                return a["browser_download_url"]
+
         self.log.warning("No matching asset found in release.")
         return None
 
