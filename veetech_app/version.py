@@ -1,0 +1,5 @@
+__version__ = "1.0.0"
+__app_name__ = "SplitMe"
+__description__ = "PDF Processing Tool by VeeTech"
+__author__ = "VeeTech"
+__url__ = "https://github.com/noelmathen/veetech-pdf-processor"
