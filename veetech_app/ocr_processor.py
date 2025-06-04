@@ -4,11 +4,25 @@ import re
 import ocrmypdf
 import os, shutil, sys
 
-# Bundle-path helper
-BASE = getattr(sys, "_MEIPASS", os.path.dirname(__file__))
-os.environ["TESSDATA_PREFIX"] = os.path.join(BASE, "tesseract", "tessdata")
-os.environ["PATH"] += os.pathsep + os.path.join(BASE, "tesseract")
-os.environ["PATH"] += os.pathsep + os.path.join(BASE, "ghostscript")
+
+import platform
+import subprocess
+
+# ── NEW: suppress console flashes on Windows ──────────────────────────────────
+if platform.system() == "Windows":
+    CREATE_NO_WINDOW = 0x08000000      # win32 constant
+
+    _orig_popen = subprocess.Popen
+
+    def _popen_no_window(*args, **kwargs):
+        # Ensure the flag is present (preserve any others)
+        flags = kwargs.get("creationflags", 0) | CREATE_NO_WINDOW
+        kwargs["creationflags"] = flags
+        return _orig_popen(*args, **kwargs)
+
+    subprocess.Popen = _popen_no_window  # monkey-patch once
+# ───────────────────────────────────────────────────────────────────────────────
+
 
 class OCRProcessor:
     """Handles OCR operations and text correction."""
