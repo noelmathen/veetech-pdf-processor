@@ -2,9 +2,9 @@
 
 [Setup]
 AppName=SplitMe
-AppVersion=1.0.0
+AppVersion=1.0.3
 DefaultDirName={pf}\SplitMe
-OutputBaseFilename=SplitMe-1.0.0-Setup
+OutputBaseFilename=SplitMe-1.0.3-Setup
 Compression=lzma
 SolidCompression=yes
 

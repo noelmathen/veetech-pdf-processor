@@ -6,7 +6,7 @@ from dataclasses import dataclass
 class AppConfig:
     """Application configuration settings."""
     app_name: str = "SplitMe"
-    version: str = "1.0.0"
+    version: str = "1.0.3"
     update_server_url: str = "https://your-update-server.com/api"
     config_file: str = "veetech_config.json"
     log_file: str = "veetech_app.log"
