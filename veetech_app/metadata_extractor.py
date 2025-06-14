@@ -24,8 +24,9 @@ class PatternConfig:
     ]
     DUE_PATTERNS = [
         r"Recommended Due Date[^\d]*(\d{2}/\d{2}/\d{4})",
-        r"Calibration Due Date[^\d]*(\d{2}/\d{2}/\d{4})",
-        r"Expiry Date[^\d]*(\d{2}/\d{2}/\d{4})",
+    ]
+    ISSUE_PATTERNS = [
+        r"Date of Issue[^\d]*(\d{2}/\d{2}/\d{4})",
     ]
     CERTIFICATE_PATTERNS = [
         r"(TEST CERTIFICATE|TEST CERTIFICATH|TEST CERTIFICA'|CERTIFICATE OF CALIBRATION)"
@@ -40,7 +41,7 @@ class PatternConfig:
 @dataclass
 class CertificateMetadata:
     """Container for extracted certificate metadata."""
-    due_date: str
+    issue_date: str
     tag: Optional[str] = None
     serial: Optional[str] = None
     unit_id: Optional[str] = None
@@ -77,17 +78,17 @@ class MetadataExtractor:
         return value
 
     @staticmethod
-    def extract_due_date(text: str) -> str:
-        """Extract and format due date."""
-        raw_date = MetadataExtractor.extract_field(PatternConfig.DUE_PATTERNS, text, "Due Date")
-        due_date = DateFormatter.format_date(raw_date)
-        if not due_date:
+    def extract_issue_date(text: str) -> str:
+        """Extract and format issue date."""
+        raw_date = MetadataExtractor.extract_field(PatternConfig.ISSUE_PATTERNS, text, "Issue Date")
+        issue_date = DateFormatter.format_date(raw_date)
+        if not issue_date:
             all_dates = re.findall(r"\d{2}/\d{2}/\d{4}", text)
             if len(all_dates) >= 5:
-                due_date = DateFormatter.format_date(all_dates[4])
-        if not due_date:
-            raise ValueError("Due date not found")
-        return due_date
+                issue_date = DateFormatter.format_date(all_dates[4])
+        if not issue_date:
+            raise ValueError("Issue date not found")
+        return issue_date
 
     @staticmethod
     def extract_certificate_type(text: str) -> str:
@@ -105,7 +106,7 @@ class MetadataExtractor:
     def extract_all_metadata(cls, text: str) -> CertificateMetadata:
         """Extract all metadata from certificate text."""
         return CertificateMetadata(
-            due_date=cls.extract_due_date(text),
+            issue_date=cls.extract_issue_date(text),
             tag=cls.extract_field(PatternConfig.TAG_PATTERNS, text, "Tag Number"),
             serial=cls.extract_field(PatternConfig.SERIAL_PATTERNS, text, "Serial Number"),
             unit_id=cls.extract_field(PatternConfig.UNIT_PATTERNS, text, "Unit ID"),

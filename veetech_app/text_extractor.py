@@ -14,6 +14,7 @@ class TextExtractor:
             raw_text = "".join(page.get_text() for page in doc)
             if not raw_text.strip():
                 raise ValueError("No text extracted from PDF")
+            # print(f"\n\nText: {raw_text[:3000]}...\n\n")  # Debug output
             return OCRProcessor.correct_ocr_errors(raw_text)
         finally:
             doc.close()

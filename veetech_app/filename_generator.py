@@ -10,7 +10,7 @@ class FilenameGenerator:
     def create_filename(metadata: CertificateMetadata, force_serial: bool = False) -> str:
         """Generate filename from metadata."""
         core_id = FilenameGenerator._build_core_id(metadata, force_serial)
-        filename = f"{metadata.due_date}_{core_id.replace(' ', '-')}_{metadata.certificate_type}.pdf"
+        filename = f"{metadata.issue_date}_{core_id.replace(' ', '-')}_{metadata.certificate_type}.pdf"
         return filename.replace("/", "-")
 
     @staticmethod
